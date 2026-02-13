@@ -4,16 +4,10 @@ import { COLORS, TRACK_CONFIG } from '../../../constants/race';
 /**
  * Track math + rendering
  *
- * FIXES IN THIS VERSION (addresses your exact symptoms):
- * - Curve lane offset now matches STRAIGHT lane offset convention:
- *   offset is applied using the LEFT-HAND normal of travel direction.
- *   This prevents lane "jumping" when entering/exiting turns.
- * - Curves compute an effective radius using the correct inward/outward sign
- *   (based on turn direction), and clamp it to avoid inversion (orbit/teleport).
- * - Speedway turn geometry unchanged (looks good), but behavior is now stable.
- * - Rotation uses lookahead on the path (stable across segment boundaries)
- * - RoadCourse uses centripetal Catmull-Rom + arc-length resampling (smooth)
- * - Grass speckles are deterministic (no per-frame flicker)
+ * Lane offset uses LEFT-HAND normal of travel direction.
+ * Rotation uses segment direction (no lookahead needed with combined lookup).
+ * Path lookup uses binary search on pre-computed cumulative distances.
+ * Track path cached as Path2D for efficient per-frame rendering.
  */
 
 export function calculateTrackDimensions(
@@ -30,6 +24,8 @@ export function calculateTrackDimensions(
   let radiusY: number;
   let pathSegments: PathSegment[] | undefined;
   let totalLength: number | undefined;
+  let cumulativeDistances: number[] | undefined;
+  let cachedPath: Path2D | undefined;
 
   switch (trackType) {
     case TrackType.Speedway:
@@ -58,6 +54,12 @@ export function calculateTrackDimensions(
       radiusY = canvasHeight * 0.38;
   }
 
+  // Pre-compute cumulative distances for binary search
+  if (pathSegments && totalLength) {
+    cumulativeDistances = buildCumulativeDistances(pathSegments);
+    cachedPath = buildCachedPath(pathSegments);
+  }
+
   return {
     centerX,
     centerY,
@@ -67,56 +69,180 @@ export function calculateTrackDimensions(
     laneCount,
     pathSegments,
     totalLength,
+    cumulativeDistances,
+    cachedPath,
   };
 }
 
-export function getPositionOnTrack(
+function buildCumulativeDistances(segments: PathSegment[]): number[] {
+  const cum: number[] = new Array(segments.length + 1);
+  cum[0] = 0;
+  for (let i = 0; i < segments.length; i++) {
+    cum[i + 1] = cum[i] + segments[i].length;
+  }
+  return cum;
+}
+
+function buildCachedPath(segments: PathSegment[]): Path2D {
+  const path = new Path2D();
+  let isFirst = true;
+  for (const seg of segments) {
+    if (seg.type === 'straight') {
+      if (isFirst) {
+        path.moveTo(seg.startX, seg.startY);
+        isFirst = false;
+      }
+      path.lineTo(seg.endX, seg.endY);
+    } else if (
+      seg.type === 'curve' &&
+      seg.centerX !== undefined &&
+      seg.centerY !== undefined &&
+      seg.radius !== undefined &&
+      seg.startAngle !== undefined &&
+      seg.endAngle !== undefined
+    ) {
+      if (isFirst) {
+        const x = seg.centerX + Math.cos(seg.startAngle) * seg.radius;
+        const y = seg.centerY + Math.sin(seg.startAngle) * seg.radius;
+        path.moveTo(x, y);
+        isFirst = false;
+      }
+      path.arc(seg.centerX, seg.centerY, seg.radius, seg.startAngle, seg.endAngle);
+    }
+  }
+  path.closePath();
+  return path;
+}
+
+// ─── Combined position + rotation lookup ───────────────────────────────
+
+export function getPositionAndRotation(
   progress: number,
   lane: number,
   dimensions: TrackDimensions,
   additionalOffset: number = 0
-): Position {
+): { position: Position; rotation: number } {
   const baseLaneOffset = (lane - (dimensions.laneCount - 1) / 2) * TRACK_CONFIG.laneSpacing;
   const totalOffset = baseLaneOffset + additionalOffset;
 
-  if (dimensions.pathSegments && dimensions.totalLength) {
-    return getPositionOnPath(progress, totalOffset, dimensions.pathSegments, dimensions.totalLength);
+  if (dimensions.pathSegments && dimensions.totalLength && dimensions.cumulativeDistances) {
+    return getPositionAndRotationOnPath(
+      progress,
+      totalOffset,
+      dimensions.pathSegments,
+      dimensions.totalLength,
+      dimensions.cumulativeDistances
+    );
   }
 
   // Default oval/ellipse calculation
   const angle = progress * Math.PI * 2 - Math.PI / 2;
-  const baseX = dimensions.centerX + Math.cos(angle) * dimensions.radiusX;
-  const baseY = dimensions.centerY + Math.sin(angle) * dimensions.radiusY;
+  const cosA = Math.cos(angle);
+  const sinA = Math.sin(angle);
 
-  const tangentX = -dimensions.radiusX * Math.sin(angle);
-  const tangentY = dimensions.radiusY * Math.cos(angle);
+  const baseX = dimensions.centerX + cosA * dimensions.radiusX;
+  const baseY = dimensions.centerY + sinA * dimensions.radiusY;
+
+  const tangentX = -dimensions.radiusX * sinA;
+  const tangentY = dimensions.radiusY * cosA;
   const tangentLength = Math.sqrt(tangentX * tangentX + tangentY * tangentY) || 1e-6;
 
   const perpX = -tangentY / tangentLength;
   const perpY = tangentX / tangentLength;
 
   return {
-    x: baseX + perpX * totalOffset,
-    y: baseY + perpY * totalOffset,
+    position: {
+      x: baseX + perpX * totalOffset,
+      y: baseY + perpY * totalOffset,
+    },
+    rotation: angle + Math.PI / 2,
   };
 }
 
+// Keep legacy exports for drawStartLine (which doesn't need rotation)
+export function getPositionOnTrack(
+  progress: number,
+  lane: number,
+  dimensions: TrackDimensions,
+  additionalOffset: number = 0
+): Position {
+  return getPositionAndRotation(progress, lane, dimensions, additionalOffset).position;
+}
+
 export function getRotationAtPosition(progress: number, dimensions?: TrackDimensions): number {
-  if (dimensions?.pathSegments && dimensions?.totalLength) {
-    return getRotationOnPath(progress, dimensions.pathSegments, dimensions.totalLength);
+  if (!dimensions) {
+    const angle = progress * Math.PI * 2 - Math.PI / 2;
+    return angle + Math.PI / 2;
+  }
+  return getPositionAndRotation(progress, 0, dimensions).rotation;
+}
+
+function getPositionAndRotationOnPath(
+  progress: number,
+  offset: number,
+  segments: PathSegment[],
+  totalLength: number,
+  cumulativeDistances: number[]
+): { position: Position; rotation: number } {
+  if (!segments.length || !Number.isFinite(totalLength) || totalLength <= 0) {
+    return { position: { x: 0, y: 0 }, rotation: 0 };
   }
 
-  const angle = progress * Math.PI * 2 - Math.PI / 2;
-  return angle + Math.PI / 2;
+  const p = normalizeProgress(progress);
+  const targetDistance = p * totalLength;
+
+  // Binary search for the segment containing targetDistance
+  let lo = 0;
+  let hi = segments.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    if (cumulativeDistances[mid + 1] < targetDistance) {
+      lo = mid + 1;
+    } else {
+      hi = mid;
+    }
+  }
+
+  const segment = segments[lo];
+  const segLen = Math.max(segment.length, 1e-6);
+  const segmentProgress = (targetDistance - cumulativeDistances[lo]) / segLen;
+
+  const position = getPositionOnSegment(segment, segmentProgress, offset);
+  const rotation = getRotationFromSegment(segment, segmentProgress);
+
+  return { position, rotation };
 }
+
+function getRotationFromSegment(segment: PathSegment, progress: number): number {
+  if (segment.type === 'straight') {
+    const dx = segment.endX - segment.startX;
+    const dy = segment.endY - segment.startY;
+    return Math.atan2(dy, dx);
+  }
+
+  if (
+    segment.type === 'curve' &&
+    segment.startAngle !== undefined &&
+    segment.endAngle !== undefined
+  ) {
+    const angle = segment.startAngle + (segment.endAngle - segment.startAngle) * progress;
+    const dir = segment.endAngle - segment.startAngle >= 0 ? 1 : -1;
+    // Tangent direction for arc
+    return Math.atan2(Math.cos(angle) * dir, -Math.sin(angle) * dir);
+  }
+
+  return 0;
+}
+
+// ─── Drawing ────────────────────────────────────────────────────────────
 
 export function drawTrack(ctx: CanvasRenderingContext2D, dimensions: TrackDimensions): void {
   // Background
   ctx.fillStyle = COLORS.grass;
   ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
-  // Deterministic speckles (no per-frame flicker)
-  drawDeterministicGrassSpeckles(ctx);
+  // Scenery (trees, bushes, grandstands) — drawn before track so track covers overlaps
+  drawScenery(ctx, dimensions);
 
   // Track
   if (dimensions.pathSegments) {
@@ -128,36 +254,130 @@ export function drawTrack(ctx: CanvasRenderingContext2D, dimensions: TrackDimens
   drawStartLine(ctx, dimensions);
 }
 
-function drawDeterministicGrassSpeckles(ctx: CanvasRenderingContext2D) {
-  const w = ctx.canvas.width | 0;
-  const h = ctx.canvas.height | 0;
-  let seed = (w * 73856093) ^ (h * 19349663) ^ 0x9e3779b9;
+// ─── Scenery ────────────────────────────────────────────────────────────
 
+function drawScenery(ctx: CanvasRenderingContext2D, dimensions: TrackDimensions): void {
+  const w = ctx.canvas.width;
+  const h = ctx.canvas.height;
+
+  // Deterministic RNG based on canvas dimensions
+  let seed = (w * 73856093) ^ (h * 19349663) ^ 0x9e3779b9;
   const rand = () => {
     seed = (seed * 1664525 + 1013904223) >>> 0;
     return seed / 0xffffffff;
   };
 
+  // Grass speckles (lighter green patches)
   ctx.fillStyle = COLORS.grassDark;
-  const count = 24;
-  for (let i = 0; i < count; i++) {
-    const x = rand() * ctx.canvas.width;
-    const y = rand() * ctx.canvas.height;
-    const r = 2 + rand() * 2;
+  for (let i = 0; i < 30; i++) {
+    const x = rand() * w;
+    const y = rand() * h;
+    const r = 2 + rand() * 3;
     ctx.beginPath();
     ctx.arc(x, y, r, 0, Math.PI * 2);
     ctx.fill();
   }
+
+  // Trees and bushes — placed outside the track area
+  const margin = dimensions.trackWidth / 2 + 40;
+
+  for (let i = 0; i < 18; i++) {
+    const x = rand() * w;
+    const y = rand() * h;
+
+    // Skip if too close to track center area
+    if (isInsideTrackArea(x, y, dimensions, margin)) continue;
+
+    // Tree: trunk + canopy
+    const trunkH = 6 + rand() * 4;
+    const canopyR = 8 + rand() * 8;
+
+    // Trunk
+    ctx.fillStyle = COLORS.treeTrunk;
+    ctx.fillRect(x - 2, y, 4, trunkH);
+
+    // Canopy
+    ctx.fillStyle = rand() > 0.5 ? COLORS.treeDark : COLORS.treeLight;
+    ctx.beginPath();
+    ctx.arc(x, y - canopyR * 0.3, canopyR, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Smaller bushes
+  for (let i = 0; i < 25; i++) {
+    const x = rand() * w;
+    const y = rand() * h;
+
+    if (isInsideTrackArea(x, y, dimensions, margin)) continue;
+
+    const r = 4 + rand() * 5;
+    ctx.fillStyle = COLORS.treeLight;
+    ctx.beginPath();
+    ctx.ellipse(x, y, r, r * 0.7, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Grandstands near start/finish
+  drawGrandstands(ctx, dimensions, rand);
 }
+
+function isInsideTrackArea(x: number, y: number, dimensions: TrackDimensions, margin: number): boolean {
+  const { centerX, centerY, radiusX, radiusY } = dimensions;
+  // Elliptical check — if the point is within the outer track boundary
+  const dx = (x - centerX) / (radiusX + margin);
+  const dy = (y - centerY) / (radiusY + margin);
+  return (dx * dx + dy * dy) < 1;
+}
+
+function drawGrandstands(
+  ctx: CanvasRenderingContext2D,
+  dimensions: TrackDimensions,
+  rand: () => number
+): void {
+  const { centerX, centerY, radiusX, radiusY, trackWidth } = dimensions;
+
+  // Place 2 grandstands — one above track, one below
+  const stands = [
+    { x: centerX - 40, y: centerY - radiusY - trackWidth / 2 - 30, w: 80, h: 20 },
+    { x: centerX + 20, y: centerY + radiusY + trackWidth / 2 + 12, w: 70, h: 18 },
+  ];
+
+  for (const stand of stands) {
+    // Stand structure
+    ctx.fillStyle = COLORS.grandstand;
+    ctx.fillRect(stand.x, stand.y, stand.w, stand.h);
+
+    // Roof
+    ctx.fillStyle = '#616161';
+    ctx.fillRect(stand.x - 2, stand.y - 3, stand.w + 4, 4);
+
+    // Spectators (rows of colored dots)
+    const spectatorColors = ['#F44336', '#2196F3', '#FFEB3B', '#FF9800', '#E91E63', '#4CAF50', '#9C27B0'];
+    for (let row = 0; row < 2; row++) {
+      for (let col = 0; col < Math.floor(stand.w / 8); col++) {
+        const sx = stand.x + 4 + col * 8;
+        const sy = stand.y + 5 + row * 8;
+        ctx.fillStyle = spectatorColors[Math.floor(rand() * spectatorColors.length)];
+        ctx.beginPath();
+        ctx.arc(sx, sy, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+}
+
+// ─── Track surface drawing ──────────────────────────────────────────────
 
 function drawEllipseTrack(ctx: CanvasRenderingContext2D, dimensions: TrackDimensions): void {
   const { centerX, centerY, radiusX, radiusY, trackWidth } = dimensions;
 
+  // Track surface
   ctx.fillStyle = COLORS.track;
   ctx.beginPath();
   ctx.ellipse(centerX, centerY, radiusX + trackWidth / 2, radiusY + trackWidth / 2, 0, 0, Math.PI * 2);
   ctx.fill();
 
+  // Infield
   ctx.fillStyle = COLORS.infield;
   ctx.beginPath();
   ctx.ellipse(centerX, centerY, radiusX - trackWidth / 2, radiusY - trackWidth / 2, 0, 0, Math.PI * 2);
@@ -171,91 +391,25 @@ function drawEllipseTrack(ctx: CanvasRenderingContext2D, dimensions: TrackDimens
   ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, Math.PI * 2);
   ctx.stroke();
   ctx.setLineDash([]);
-
-  // Borders
-  ctx.strokeStyle = COLORS.trackLines;
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.ellipse(centerX, centerY, radiusX + trackWidth / 2, radiusY + trackWidth / 2, 0, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.ellipse(centerX, centerY, radiusX - trackWidth / 2, radiusY - trackWidth / 2, 0, 0, Math.PI * 2);
-  ctx.stroke();
 }
 
 function drawPathBasedTrack(ctx: CanvasRenderingContext2D, dimensions: TrackDimensions): void {
-  if (!dimensions.pathSegments) return;
+  if (!dimensions.cachedPath) return;
 
   const { trackWidth } = dimensions;
 
-  // Track surface
+  // Track surface — use cached Path2D
   ctx.lineWidth = trackWidth;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   ctx.strokeStyle = COLORS.track;
-
-  ctx.beginPath();
-  let isFirst = true;
-  for (const seg of dimensions.pathSegments) {
-    if (seg.type === 'straight') {
-      if (isFirst) {
-        ctx.moveTo(seg.startX, seg.startY);
-        isFirst = false;
-      }
-      ctx.lineTo(seg.endX, seg.endY);
-    } else if (
-      seg.type === 'curve' &&
-      seg.centerX !== undefined &&
-      seg.centerY !== undefined &&
-      seg.radius !== undefined &&
-      seg.startAngle !== undefined &&
-      seg.endAngle !== undefined
-    ) {
-      if (isFirst) {
-        const x = seg.centerX + Math.cos(seg.startAngle) * seg.radius;
-        const y = seg.centerY + Math.sin(seg.startAngle) * seg.radius;
-        ctx.moveTo(x, y);
-        isFirst = false;
-      }
-      ctx.arc(seg.centerX, seg.centerY, seg.radius, seg.startAngle, seg.endAngle);
-    }
-  }
-  ctx.closePath();
-  ctx.stroke();
+  ctx.stroke(dimensions.cachedPath);
 
   // Center dashed line
   ctx.strokeStyle = COLORS.trackLines;
   ctx.lineWidth = 2;
   ctx.setLineDash([20, 20]);
-
-  ctx.beginPath();
-  isFirst = true;
-  for (const seg of dimensions.pathSegments) {
-    if (seg.type === 'straight') {
-      if (isFirst) {
-        ctx.moveTo(seg.startX, seg.startY);
-        isFirst = false;
-      }
-      ctx.lineTo(seg.endX, seg.endY);
-    } else if (
-      seg.type === 'curve' &&
-      seg.centerX !== undefined &&
-      seg.centerY !== undefined &&
-      seg.radius !== undefined &&
-      seg.startAngle !== undefined &&
-      seg.endAngle !== undefined
-    ) {
-      if (isFirst) {
-        const x = seg.centerX + Math.cos(seg.startAngle) * seg.radius;
-        const y = seg.centerY + Math.sin(seg.startAngle) * seg.radius;
-        ctx.moveTo(x, y);
-        isFirst = false;
-      }
-      ctx.arc(seg.centerX, seg.centerY, seg.radius, seg.startAngle, seg.endAngle);
-    }
-  }
-  ctx.closePath();
-  ctx.stroke();
+  ctx.stroke(dimensions.cachedPath);
   ctx.setLineDash([]);
 }
 
@@ -264,29 +418,33 @@ function drawStartLine(ctx: CanvasRenderingContext2D, dimensions: TrackDimension
   const checkerSize = 10;
   const lineWidth = 20;
 
-  const startPos = getPositionOnTrack(0, 0, dimensions, 0);
+  // Use the center lane so the start line is centered on the track
+  const centerLane = (dimensions.laneCount - 1) / 2;
+  const startPos = getPositionOnTrack(0, centerLane, dimensions, 0);
   const startRotation = getRotationAtPosition(0, dimensions);
 
-  const perpAngle = startRotation - Math.PI / 2;
-  const perpX = Math.cos(perpAngle);
-  const perpY = Math.sin(perpAngle);
+  // Draw rotated checkerboard centered on the start position
+  ctx.save();
+  ctx.translate(startPos.x, startPos.y);
+  ctx.rotate(startRotation);
 
   const halfWidth = trackWidth / 2;
-  for (let offset = -halfWidth; offset < halfWidth; offset += checkerSize) {
-    const x1 = startPos.x + perpX * offset;
-    const y1 = startPos.y + perpY * offset;
+  const halfLine = lineWidth / 2;
 
-    for (let along = -lineWidth / 2; along < lineWidth / 2; along += checkerSize) {
-      const x = x1 + Math.cos(startRotation) * along;
-      const y = y1 + Math.sin(startRotation) * along;
-
-      const isWhite =
-        (Math.floor((offset + halfWidth) / checkerSize) + Math.floor((along + lineWidth / 2) / checkerSize)) % 2 === 0;
-      ctx.fillStyle = isWhite ? COLORS.startLine : COLORS.startLineAlt;
-      ctx.fillRect(x, y, checkerSize, checkerSize);
+  for (let across = -halfWidth; across < halfWidth; across += checkerSize) {
+    for (let along = -halfLine; along < halfLine; along += checkerSize) {
+      const col = Math.floor((across + halfWidth) / checkerSize);
+      const row = Math.floor((along + halfLine) / checkerSize);
+      ctx.fillStyle = (col + row) % 2 === 0 ? COLORS.startLine : COLORS.startLineAlt;
+      // Draw perpendicular to travel direction (across = perpendicular, along = travel direction)
+      ctx.fillRect(along, across, checkerSize, checkerSize);
     }
   }
+
+  ctx.restore();
 }
+
+// ─── Path math helpers ──────────────────────────────────────────────────
 
 function calculatePathLength(segments: PathSegment[]): number {
   return segments.reduce((sum, seg) => sum + seg.length, 0);
@@ -295,29 +453,6 @@ function calculatePathLength(segments: PathSegment[]): number {
 function normalizeProgress(progress: number): number {
   const p = progress % 1;
   return p < 0 ? p + 1 : p;
-}
-
-function getPositionOnPath(progress: number, offset: number, segments: PathSegment[], totalLength: number): Position {
-  if (!segments.length || !Number.isFinite(totalLength) || totalLength <= 0) {
-    return { x: 0, y: 0 };
-  }
-
-  const p = normalizeProgress(progress);
-  const targetDistance = p * totalLength;
-
-  let accumulated = 0;
-
-  for (const segment of segments) {
-    const segLen = Math.max(segment.length, 1e-6);
-
-    if (accumulated + segLen >= targetDistance) {
-      const segmentProgress = (targetDistance - accumulated) / segLen;
-      return getPositionOnSegment(segment, segmentProgress, offset);
-    }
-    accumulated += segLen;
-  }
-
-  return getPositionOnSegment(segments[0], 0, offset);
 }
 
 function getPositionOnSegment(segment: PathSegment, progress: number, offset: number): Position {
@@ -335,7 +470,7 @@ function getPositionOnSegment(segment: PathSegment, progress: number, offset: nu
       return { x, y };
     }
 
-    // LEFT-HAND normal (your convention)
+    // LEFT-HAND normal
     const perpX = -dy / length;
     const perpY = dx / length;
 
@@ -355,27 +490,21 @@ function getPositionOnSegment(segment: PathSegment, progress: number, offset: nu
     const cosA = Math.cos(angle);
     const sinA = Math.sin(angle);
 
-    // Base point on the curve centerline
     const baseX = segment.centerX + cosA * segment.radius;
     const baseY = segment.centerY + sinA * segment.radius;
 
-    // Determine direction of travel along the arc.
-    // endAngle > startAngle => CCW, else CW
     const dir = segment.endAngle - segment.startAngle >= 0 ? 1 : -1;
 
-    // Unit tangent in direction of travel
-    // CCW tangent = (-sin, cos), CW is reversed
     const tanX = (-sinA) * dir;
     const tanY = (cosA) * dir;
 
-    // Left-hand normal to tangent (matches straight segments)
+    // Left-hand normal to tangent
     const normX = -tanY;
     const normY = tanX;
 
     const x = baseX + normX * offset;
     const y = baseY + normY * offset;
 
-    // Extra safety: never return NaN
     if (!Number.isFinite(x) || !Number.isFinite(y)) {
       return { x: baseX, y: baseY };
     }
@@ -386,37 +515,7 @@ function getPositionOnSegment(segment: PathSegment, progress: number, offset: nu
   return { x: 0, y: 0 };
 }
 
-
-function getRotationOnPath(progress: number, segments: PathSegment[], totalLength: number): number {
-  if (!segments.length || !Number.isFinite(totalLength) || totalLength <= 0) return 0;
-
-  const lookaheadDist = Math.max(14, totalLength * 0.002); // stable heading
-  const delta = lookaheadDist / totalLength;
-
-  const p1 = getPositionOnPath(progress, 0, segments, totalLength);
-  const p2 = getPositionOnPath(progress + delta, 0, segments, totalLength);
-
-  const dx = p2.x - p1.x;
-  const dy = p2.y - p1.y;
-
-  if (!Number.isFinite(dx) || !Number.isFinite(dy)) return 0;
-  if (Math.abs(dx) < 1e-6 && Math.abs(dy) < 1e-6) return 0;
-
-  return Math.atan2(dy, dx);
-}
-
-// Kept for completeness (not used with lookahead rotation)
-function getRotationOnSegment(segment: PathSegment, progress: number): number {
-  if (segment.type === 'straight') {
-    const dx = segment.endX - segment.startX;
-    const dy = segment.endY - segment.startY;
-    return Math.atan2(dy, dx);
-  } else if (segment.type === 'curve' && segment.startAngle !== undefined && segment.endAngle !== undefined) {
-    const angle = segment.startAngle + (segment.endAngle - segment.startAngle) * progress;
-    return angle + Math.PI / 2;
-  }
-  return 0;
-}
+// ─── Track generation ───────────────────────────────────────────────────
 
 /**
  * FIGURE-8 (Lemniscate of Gerono)
@@ -489,9 +588,6 @@ function generateSpeedwayPath(
   height: number,
   trackWidth: number
 ): PathSegment[] {
-  // Stadium shape, sampled into straight segments (stable + smooth).
-  // FIX: Left arc must go through PI (left-most point), not through 0 (right-most).
-
   const segments: PathSegment[] = [];
 
   const straightHalf = width * 0.28;
@@ -515,11 +611,11 @@ function generateSpeedwayPath(
     pts.push({ x: leftX + (rightX - leftX) * t, y: topY });
   }
 
-  // 2) Right semicircle: -90° -> +90° (goes through 0°, OUTSIDE right)
+  // 2) Right semicircle: -90deg -> +90deg
   const arcSteps = 140;
   for (let i = 1; i <= arcSteps; i++) {
     const t = i / arcSteps;
-    const ang = -Math.PI / 2 + Math.PI * t; // -90 to +90
+    const ang = -Math.PI / 2 + Math.PI * t;
     pts.push({
       x: rightX + Math.cos(ang) * turnRadius,
       y: centerY + Math.sin(ang) * turnRadius,
@@ -533,10 +629,10 @@ function generateSpeedwayPath(
     pts.push({ x: rightX + (leftX - rightX) * t, y: bottomY });
   }
 
-  // 4) Left semicircle: +90° -> +270° (goes through PI, OUTSIDE left)  ✅ FIX
+  // 4) Left semicircle: +90deg -> +270deg
   for (let i = 1; i <= arcSteps; i++) {
     const t = i / arcSteps;
-    const ang = Math.PI / 2 + Math.PI * t; // +90 to +270 (through 180)
+    const ang = Math.PI / 2 + Math.PI * t;
     pts.push({
       x: leftX + Math.cos(ang) * turnRadius,
       y: centerY + Math.sin(ang) * turnRadius,
@@ -546,7 +642,7 @@ function generateSpeedwayPath(
   // Close
   pts.push({ ...pts[0] });
 
-  // Convert to PathSegments (straight)
+  // Convert to PathSegments
   for (let i = 0; i < pts.length - 1; i++) {
     const p1 = pts[i];
     const p2 = pts[i + 1];
@@ -570,7 +666,6 @@ function generateSpeedwayPath(
   return segments;
 }
 
-
 /**
  * Shared helper: build a smooth CLOSED loop from control points
  * using centripetal Catmull-Rom + arc-length resampling.
@@ -583,13 +678,19 @@ function buildSmoothClosedPath(
 ): PathSegment[] {
   if (control.length < 4) return [];
 
-  const dist = (a: any, b: any) => {
+  const dist = (a: { x: number; y: number }, b: { x: number; y: number }) => {
     const dx = b.x - a.x;
     const dy = b.y - a.y;
     return Math.sqrt(dx * dx + dy * dy);
   };
 
-  function catmullRomCentripetal(p0: any, p1: any, p2: any, p3: any, t: number) {
+  function catmullRomCentripetal(
+    p0: { x: number; y: number },
+    p1: { x: number; y: number },
+    p2: { x: number; y: number },
+    p3: { x: number; y: number },
+    t: number
+  ) {
     const t0 = 0;
     const t1 = t0 + Math.pow(dist(p0, p1), alpha);
     const t2 = t1 + Math.pow(dist(p1, p2), alpha);
@@ -730,4 +831,3 @@ function generateRoadCoursePath(centerX: number, centerY: number, width: number,
 
   return buildSmoothClosedPath(control, 50, 5, 0.5);
 }
-

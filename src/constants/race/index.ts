@@ -47,11 +47,17 @@ export const TRACK_CONFIG = {
 };
 
 export const COLORS = {
-  grass: '#2C3E50',
-  grassDark: '#1A252F',
+  grass: '#388E3C',
+  grassDark: '#2E7D32',
   track: '#424242',
   trackLines: '#FFFFFF',
   startLine: '#FFFFFF',
   startLineAlt: '#212121',
-  infield: '#34495E',
+  infield: '#43A047',
+  curbRed: '#D32F2F',
+  curbWhite: '#FFFFFF',
+  treeDark: '#1B5E20',
+  treeLight: '#4CAF50',
+  treeTrunk: '#5D4037',
+  grandstand: '#757575',
 };

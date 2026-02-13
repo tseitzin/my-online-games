@@ -47,7 +47,7 @@ export function updateCar(
 
   const steeringSpeed = 0.008;
   const steeringDamping = 0.9;
-  
+
   // Speed-dependent steering: slower = sharper turns
   const speedFactor = Math.max(0.3, newSpeed / car.maxSpeed);
   const effectiveTurnRate = CAR_PHYSICS.headingTurnRate / speedFactor;
@@ -67,7 +67,7 @@ export function updateCar(
     }
   }
 
-  // Normalize heading to 0-2π range
+  // Normalize heading to 0-2pi range
   newHeading = ((newHeading % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
 
   const maxLaneOffset = CAR_PHYSICS.laneWidth * CAR_PHYSICS.maxLaneOffsetMultiplier;
@@ -139,10 +139,6 @@ export function calculatePositions(cars: Car[]): Car[] {
     ...car,
     position: index + 1,
   }));
-}
-
-export function checkRaceFinished(cars: Car[], targetLaps: number): boolean {
-  return cars.some(car => car.lapsCompleted >= targetLaps);
 }
 
 export function updateRaceState(

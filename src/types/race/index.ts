@@ -74,6 +74,8 @@ export interface TrackDimensions {
   laneCount: number;
   pathSegments?: PathSegment[];
   totalLength?: number;
+  cumulativeDistances?: number[];
+  cachedPath?: Path2D;
 }
 
 export interface RaceResults {

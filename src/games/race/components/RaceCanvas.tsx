@@ -1,6 +1,6 @@
 import { useRef, useEffect, useCallback } from 'react';
 import { Car, TrackDimensions, PlayerInputs, TrackType } from '../../../types/race';
-import { drawTrack, getPositionOnTrack, getRotationAtPosition, calculateTrackDimensions } from '../game/Track';
+import { drawTrack, getPositionAndRotation, calculateTrackDimensions } from '../game/Track';
 import { drawCar } from '../game/Car';
 import { updateRaceState } from '../game/GameEngine';
 
@@ -30,6 +30,7 @@ export function RaceCanvas({
   const dimensionsRef = useRef<TrackDimensions | null>(null);
   const carsRef = useRef<Car[]>(cars);
   const inputsRef = useRef<PlayerInputs>(playerInputs);
+  const firstFinishTimeRef = useRef<number | null>(null);
 
   carsRef.current = cars;
   inputsRef.current = playerInputs;
@@ -56,6 +57,13 @@ export function RaceCanvas({
     window.addEventListener('resize', updateCanvasSize);
     return () => window.removeEventListener('resize', updateCanvasSize);
   }, [updateCanvasSize]);
+
+  // Reset finish timer when race starts
+  useEffect(() => {
+    if (isRacing) {
+      firstFinishTimeRef.current = null;
+    }
+  }, [isRacing]);
 
   const gameLoop = useCallback((timestamp: number) => {
     const canvas = canvasRef.current;
@@ -85,15 +93,21 @@ export function RaceCanvas({
       currentCars = updatedCars;
       onCarsUpdate(updatedCars);
 
-      if (finished) {
+      // Track when first car finishes
+      const anyFinished = updatedCars.some(c => c.finished);
+      if (anyFinished && firstFinishTimeRef.current === null) {
+        firstFinishTimeRef.current = Date.now();
+      }
+
+      // End race when all finished OR 5 seconds after first finish
+      if (finished || (firstFinishTimeRef.current && Date.now() - firstFinishTimeRef.current > 5000)) {
         onRaceFinished();
       }
     }
 
     currentCars.forEach(car => {
-      const position = getPositionOnTrack(car.trackProgress, car.lane, dimensions, car.laneOffset);
-      const rotation = getRotationAtPosition(car.trackProgress, dimensions) + car.steeringAngle;
-      drawCar(ctx, car, position, rotation);
+      const { position, rotation } = getPositionAndRotation(car.trackProgress, car.lane, dimensions, car.laneOffset);
+      drawCar(ctx, car, position, rotation + car.steeringAngle);
     });
 
     animationRef.current = requestAnimationFrame(gameLoop);
