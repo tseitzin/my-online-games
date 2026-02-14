@@ -1,8 +1,6 @@
-import React from 'react'
-import { render } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
 import { vi } from 'vitest'
 import type { Plane, GameConfig, GameState, Difficulty } from '../types'
+import { renderWithRouter } from '../../../test/renderWithRouter.jsx'
 
 // ─── Factory functions ────────────────────────────────────────────────────
 
@@ -52,11 +50,8 @@ export function makeGameState(overrides?: Partial<GameState>): GameState {
   }
 }
 
-// ─── Router wrapper for components using <Link> ──────────────────────────
-
-export function renderWithRouter(ui: React.ReactElement) {
-  return render(<MemoryRouter>{ui}</MemoryRouter>)
-}
+// ─── Router wrapper (shared) ──────────────────────────────────────────────
+export { renderWithRouter }
 
 // ─── Mock getBoundingClientRect for collision testing ─────────────────────
 

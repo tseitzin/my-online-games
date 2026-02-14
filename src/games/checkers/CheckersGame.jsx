@@ -5,7 +5,10 @@ import { GAME_STATES } from './constants';
 import SetupScreen from './components/SetupScreen';
 import GameBoard from './components/GameBoard';
 import EndScreen from './components/EndScreen';
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
+import HomeButton from '../../components/HomeButton.jsx';
+import DarkModeToggle from '../../components/DarkModeToggle.jsx';
+import { useDarkMode } from '../../hooks/useDarkMode.js';
 
 
 const CheckersGame = () => {
@@ -31,21 +34,7 @@ const CheckersGame = () => {
     removedPieces
   } = useGameState();
 
-  // Dark mode state and persistence
-  const [darkMode, setDarkMode] = useState(() => {
-    try {
-      const saved = localStorage.getItem('checkers:darkMode');
-      return saved ? JSON.parse(saved) : false;
-    } catch {
-      return false;
-    }
-  });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('checkers:darkMode', JSON.stringify(darkMode));
-    } catch {}
-  }, [darkMode]);
+  const { darkMode, toggleDarkMode } = useDarkMode('checkers:darkMode');
 
   const handleSquareClick = (row, col) => {
     const piece = board[row][col];
@@ -64,54 +53,8 @@ const CheckersGame = () => {
     const setupBg = darkMode ? '#1a202c' : '#f8f6f1';
     return (
       <div style={{ backgroundColor: setupBg, minHeight: '100vh' }}>
-        {/* Home button */}
-        <a
-          href="/"
-          style={{
-            position: 'fixed',
-            top: 16,
-            left: 16,
-            background: darkMode ? '#374151' : '#fff',
-            color: darkMode ? '#e5e5e5' : '#1a202c',
-            border: darkMode ? '2px solid #4b5563' : '2px solid #1a202c',
-            borderRadius: 8,
-            padding: '8px 16px',
-            fontSize: 14,
-            fontWeight: 600,
-            cursor: 'pointer',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-            zIndex: 1000,
-            textDecoration: 'none',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 6,
-            transition: 'all 0.3s ease',
-          }}
-        >
-          Home
-        </a>
-        {/* Dark/Light mode button */}
-        <button
-          onClick={() => setDarkMode((d) => !d)}
-          style={{
-            position: 'fixed',
-            top: 16,
-            right: 16,
-            background: darkMode ? '#374151' : '#fff',
-            color: darkMode ? '#fbbf24' : '#1a202c',
-            border: darkMode ? '2px solid #4b5563' : '2px solid #1a202c',
-            borderRadius: 8,
-            padding: '8px 16px',
-            fontSize: 14,
-            fontWeight: 600,
-            cursor: 'pointer',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-            zIndex: 1000,
-            transition: 'all 0.3s ease',
-          }}
-        >
-          {darkMode ? ' Light' : ' Dark'}
-        </button>
+        <HomeButton darkMode={darkMode} />
+        <DarkModeToggle darkMode={darkMode} onToggle={toggleDarkMode} />
         <SetupScreen onStartGame={startGame} darkMode={darkMode} />
       </div>
     );
@@ -119,54 +62,8 @@ const CheckersGame = () => {
 
   return (
     <div style={{ position: 'fixed', inset: 0, backgroundColor: darkMode ? '#1a202c' : '#f8f6f1', overflow: 'hidden' }}>
-      {/* Home button */}
-      <a
-        href="/"
-        style={{
-          position: 'fixed',
-          top: 16,
-          left: 16,
-          background: darkMode ? '#374151' : '#fff',
-          color: darkMode ? '#e5e5e5' : '#1a202c',
-          border: darkMode ? '2px solid #4b5563' : '2px solid #1a202c',
-          borderRadius: 8,
-          padding: '8px 16px',
-          fontSize: 14,
-          fontWeight: 600,
-          cursor: 'pointer',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-          zIndex: 1000,
-          textDecoration: 'none',
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 6,
-          transition: 'all 0.3s ease',
-        }}
-      >
-        Home
-      </a>
-      {/* Dark/Light mode button */}
-      <button
-        onClick={() => setDarkMode((d) => !d)}
-        style={{
-          position: 'fixed',
-          top: 16,
-          right: 16,
-          background: darkMode ? '#374151' : '#fff',
-          color: darkMode ? '#fbbf24' : '#1a202c',
-          border: darkMode ? '2px solid #4b5563' : '2px solid #1a202c',
-          borderRadius: 8,
-          padding: '8px 16px',
-          fontSize: 14,
-          fontWeight: 600,
-          cursor: 'pointer',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-          zIndex: 1000,
-          transition: 'all 0.3s ease',
-        }}
-      >
-        {darkMode ? ' Light' : ' Dark'}
-      </button>
+      <HomeButton darkMode={darkMode} />
+      <DarkModeToggle darkMode={darkMode} onToggle={toggleDarkMode} />
       <div className="container mx-auto px-4 py-6">
         <div className="flex flex-col lg:flex-row gap-6 items-start justify-center">
           {/* Scoreboard (left) and GameBoard (center) */}

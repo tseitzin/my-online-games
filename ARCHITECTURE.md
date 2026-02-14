@@ -65,7 +65,11 @@ src/
 ├── pages/
 │   └── Home.jsx                # Home page with game selector grid
 ├── components/
-│   └── ErrorBoundary.jsx       # Shared error boundary (wraps all routes)
+│   ├── ErrorBoundary.jsx       # Shared error boundary (wraps all routes)
+│   ├── HomeButton.jsx          # Shared Home button (fixed top-left, optional darkMode prop)
+│   └── DarkModeToggle.jsx      # Shared dark mode toggle (fixed top-right)
+├── hooks/
+│   └── useDarkMode.js          # Shared dark mode hook (localStorage persistence)
 ├── games/
 │   ├── golf/                   # Golf card game (JavaScript)
 │   ├── race/                   # Race game (TypeScript)
@@ -81,7 +85,7 @@ src/
 │   └── score.js                # Golf scoring utilities
 ├── assets/                     # Images, SVGs, game assets
 └── test/
-    └── gameTestHelpers.js      # Shared test utilities
+    └── renderWithRouter.jsx    # Shared router wrapper for testing
 ```
 
 ## Routing
@@ -505,13 +509,13 @@ flowchart LR
     style Light fill:#fefce8,stroke:#a16207
 ```
 
-Games that support dark mode use a consistent pattern:
+Games that support dark mode use the shared `useDarkMode` hook and `DarkModeToggle` component:
 
 ```jsx
-const [darkMode, setDarkMode] = useState(() => {
-  const saved = localStorage.getItem('{gameName}:darkMode');
-  return saved ? JSON.parse(saved) : false;
-});
+import { useDarkMode } from '../../hooks/useDarkMode';
+import DarkModeToggle from '../../components/DarkModeToggle';
+
+const { darkMode, toggleDarkMode } = useDarkMode('{gameName}:darkMode');
 
 const theme = {
   light: { background: '#f8f6f1', text: '#222', ... },
@@ -519,13 +523,16 @@ const theme = {
 };
 
 const currentTheme = darkMode ? theme.dark : theme.light;
+
+// In JSX:
+<DarkModeToggle darkMode={darkMode} onToggle={toggleDarkMode} />
 ```
 
 ### Common UI Elements
 
-**Home Button:** Fixed top-left, present on every game screen. Uses React Router `<Link to="/">`.
+**Home Button:** Fixed top-left, present on every game screen. Uses the shared `<HomeButton />` component (`src/components/HomeButton.jsx`) which accepts an optional `darkMode` prop.
 
-**Dark Mode Toggle:** Fixed top-right. Persists to localStorage.
+**Dark Mode Toggle:** Fixed top-right. Uses the shared `<DarkModeToggle />` component (`src/components/DarkModeToggle.jsx`) with the `useDarkMode` hook (`src/hooks/useDarkMode.js`) for localStorage persistence.
 
 **Setup Screen:** Card-based layout with options for player count, difficulty, game settings.
 
@@ -555,11 +562,12 @@ All persistence uses `localStorage` with a `{gameName}:{setting}` key convention
 flowchart LR
     subgraph "localStorage Keys"
         direction TB
-        K1["golf:darkMode"]
-        K2["golf:aiSpeed"]
-        K3["checkers:darkMode"]
-        K4["dots:darkMode"]
-        K5["archerfish:leaderboard"]
+        K1["home:darkMode"]
+        K2["golf:darkMode"]
+        K3["golf:aiSpeed"]
+        K4["checkers:darkMode"]
+        K5["dots:darkMode"]
+        K6["archerfish:leaderboard"]
     end
 
     subgraph "Pattern"
@@ -574,6 +582,7 @@ flowchart LR
     style K3 fill:#f0fdf4,stroke:#14532d
     style K4 fill:#f0fdf4,stroke:#14532d
     style K5 fill:#f0fdf4,stroke:#14532d
+    style K6 fill:#f0fdf4,stroke:#14532d
 ```
 
 Only user preferences are persisted. Game state is not saved between sessions (except Golf which saves in-progress games).
@@ -626,7 +635,7 @@ Tests follow a three-layer approach that maps to each game's architecture:
 2. **Component integration tests** — Render components with React Testing Library, verify output, simulate user interactions, check callbacks.
 3. **Playwright e2e tests** — Browser-based acceptance tests that exercise the full running application (routing, CSS, animations, real DOM).
 
-Tests are **co-located** with source files: `Card.test.jsx` lives next to `Card.jsx`. Shared test utilities live in `src/test/gameTestHelpers.jsx`.
+Tests are **co-located** with source files: `Card.test.jsx` lives next to `Card.jsx`. The shared router wrapper lives in `src/test/renderWithRouter.jsx`. Golf-specific test helpers (deck builders, hook renderer) live in `src/games/golf/test/golfTestHelpers.jsx`.
 
 ### Infrastructure
 
@@ -771,7 +780,7 @@ export function renderWithRouter(ui: React.ReactElement) {
 
 **2. Hook unit tests** (turn-based games: `hooks/useGameState.test.js`)
 ```js
-import { renderGameHook, makeSimpleDeck } from '../../../test/gameTestHelpers.jsx'
+import { renderGameHook, makeSimpleDeck } from '../test/golfTestHelpers.jsx'
 import { act } from '@testing-library/react'
 
 it('initializes with correct state', () => {
@@ -810,7 +819,13 @@ test('can start game from home page', async ({ page }) => {
 
 ### Test Helpers
 
-#### Shared (`src/test/gameTestHelpers.jsx`)
+#### Shared (`src/test/renderWithRouter.jsx`)
+
+| Helper | Purpose |
+|--------|---------|
+| `renderWithRouter(ui)` | Render a component inside `<MemoryRouter>` for testing components that use `<Link>` or `<HomeButton>` |
+
+#### Golf-Specific (`src/games/golf/test/golfTestHelpers.jsx`)
 
 | Helper | Purpose |
 |--------|---------|

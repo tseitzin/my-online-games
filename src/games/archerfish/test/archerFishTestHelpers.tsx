@@ -1,6 +1,5 @@
-import { render } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
 import type { Fish, Robot, Obstacle, WaterJet, GameConfig } from '../types'
+import { renderWithRouter } from '../../../test/renderWithRouter.jsx'
 
 export function makeFish(overrides?: Partial<Fish>): Fish {
   return {
@@ -68,6 +67,4 @@ export function makeGameConfig(overrides?: Partial<GameConfig>): GameConfig {
   }
 }
 
-export function renderWithRouter(ui: React.ReactElement) {
-  return render(<MemoryRouter>{ui}</MemoryRouter>)
-}
+export { renderWithRouter }

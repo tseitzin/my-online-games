@@ -147,15 +147,15 @@ describe('Dark mode toggle', () => {
     expect(btn.textContent).not.toContain('Light')
   })
 
-  it('dark mode persists to localStorage under key golf:darkMode', () => {
+  it('dark mode persists to localStorage under key home:darkMode', () => {
     renderHome()
     const btn = screen.getByRole('button')
     fireEvent.click(btn)
-    expect(localStorage.getItem('golf:darkMode')).toBe('true')
+    expect(localStorage.getItem('home:darkMode')).toBe('true')
   })
 
   it('reads dark mode from localStorage on mount', () => {
-    localStorage.setItem('golf:darkMode', 'true')
+    localStorage.setItem('home:darkMode', 'true')
     renderHome()
     const btn = screen.getByRole('button')
     expect(btn.textContent).toContain('Light')
@@ -172,14 +172,14 @@ describe('localStorage handling', () => {
   })
 
   it('reads true from localStorage and starts in dark mode', () => {
-    localStorage.setItem('golf:darkMode', 'true')
+    localStorage.setItem('home:darkMode', 'true')
     renderHome()
     const btn = screen.getByRole('button')
     expect(btn.textContent).toContain('Light')
   })
 
   it('handles corrupted localStorage gracefully (defaults to light)', () => {
-    localStorage.setItem('golf:darkMode', '{not-valid-json')
+    localStorage.setItem('home:darkMode', '{not-valid-json')
     renderHome()
     const btn = screen.getByRole('button')
     expect(btn.textContent).toContain('Dark')

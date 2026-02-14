@@ -1,7 +1,6 @@
 import { renderHook, act } from '@testing-library/react'
-import { render } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
 import { useGameState } from '../hooks/useGameState'
+import { renderWithRouter } from '../../../test/renderWithRouter.jsx'
 
 // ─── Constants ──────────────────────────────────────────────────────
 
@@ -95,15 +94,8 @@ export async function initGame(result, config = makeGameConfig()) {
 	})
 }
 
-// ─── Router wrapper for component tests ─────────────────────────────
-
-export function DotsWrapper({ children }) {
-	return <MemoryRouter>{children}</MemoryRouter>
-}
-
-export function renderWithRouter(ui) {
-	return render(ui, { wrapper: DotsWrapper })
-}
+// ─── Router wrapper (shared) ─────────────────────────────────────────
+export { renderWithRouter }
 
 // ─── checkBoxCompletion helper (mirrors hook logic) ─────────────────
 

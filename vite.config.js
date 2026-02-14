@@ -15,7 +15,7 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'text-summary', 'html'],
-      include: ['src/games/golf/**', 'src/games/checkers/**', 'src/games/archerfish/**', 'src/games/race/**', 'src/games/dots/**', 'src/games/battleplanes/**'],
+      include: ['src/games/golf/**', 'src/games/checkers/**', 'src/games/archerfish/**', 'src/games/race/**', 'src/games/dots/**', 'src/games/battleplanes/**', 'src/components/**', 'src/hooks/**'],
       exclude: ['**/*.test.*', '**/test/**'],
     },
   },

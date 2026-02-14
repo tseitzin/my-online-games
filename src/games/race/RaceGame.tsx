@@ -1,7 +1,7 @@
-import { Link } from 'react-router-dom';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { GameState, RaceConfig, Car, PlayerInputs, CarConfig, TrackType } from '../../types/race';
 import { CAR_COLORS, KEYBOARD_CONTROLS } from '../../constants/race/index.ts';
+import HomeButton from '../../components/HomeButton';
 import { createCar } from './game/GameEngine';
 import { SetupScreen } from './components/SetupScreen';
 import { generateAICars } from './utils/aiCars';
@@ -47,14 +47,14 @@ export default function RaceGame() {
 			if (controls) {
 				const hasAccelerate = pressedKeysRef.current.has(controls.accelerate);
 				const hasAlternate = 'alternate' in controls && pressedKeysRef.current.has(controls.alternate as string);
-				
+
 				// For player 0, also check arrow keys in addition to WASD
 				const arrowControls = i === 0 ? KEYBOARD_CONTROLS[1] : null;
 				const hasArrowAccelerate = arrowControls && pressedKeysRef.current.has(arrowControls.accelerate);
 				const hasArrowBrake = arrowControls && pressedKeysRef.current.has(arrowControls.brake);
 				const hasArrowLeft = arrowControls && pressedKeysRef.current.has(arrowControls.turnLeft);
 				const hasArrowRight = arrowControls && pressedKeysRef.current.has(arrowControls.turnRight);
-				
+
 				inputs[i] = {
 					accelerate: hasAccelerate || hasAlternate || hasArrowAccelerate,
 					brake: pressedKeysRef.current.has(controls.brake) || hasArrowBrake,
@@ -150,32 +150,7 @@ export default function RaceGame() {
 	if (gameState === 'setup') {
 		return (
 			<>
-				{/* Home button */}
-				<Link
-					to="/"
-					style={{
-						position: 'fixed',
-						top: 16,
-						left: 16,
-						background: '#fff',
-						color: '#1a202c',
-						border: '2px solid #1a202c',
-						borderRadius: 8,
-						padding: '8px 16px',
-						fontSize: 14,
-						fontWeight: '600',
-						cursor: 'pointer',
-						boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-						zIndex: 1000,
-						textDecoration: 'none',
-						display: 'inline-flex',
-						alignItems: 'center',
-						gap: 6,
-						transition: 'all 0.3s ease',
-					}}
-				>
-					 Home
-				</Link>
+				<HomeButton />
 				<SetupScreen
 					config={raceConfig}
 					onConfigChange={setRaceConfig}
@@ -187,32 +162,7 @@ export default function RaceGame() {
 
 	return (
 		<div style={{ position: 'fixed', inset: 0, backgroundColor: '#111827', overflow: 'hidden' }}>
-			{/* Home button */}
-			<Link
-				to="/"
-				style={{
-					position: 'fixed',
-					top: 16,
-					left: 16,
-					background: '#fff',
-					color: '#1a202c',
-					border: '2px solid #1a202c',
-					borderRadius: 8,
-					padding: '8px 16px',
-					fontSize: 14,
-					fontWeight: '600',
-					cursor: 'pointer',
-					boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-					zIndex: 1000,
-					textDecoration: 'none',
-					display: 'inline-flex',
-					alignItems: 'center',
-					gap: 6,
-					transition: 'all 0.3s ease',
-				}}
-			>
-				 Home
-			</Link>
+			<HomeButton />
 
 			<RaceCanvas
 				cars={cars}

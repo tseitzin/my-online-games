@@ -1,4 +1,3 @@
-import { Link } from 'react-router-dom';
 import '../../App.css';
 import PlayerSetup from './components/PlayerSetup.jsx';
 import PlayerBoard from './components/PlayerBoard.jsx';
@@ -7,6 +6,9 @@ import ActionBar from './components/ActionBar.jsx';
 import Scorecard from './components/Scorecard.jsx';
 import { useGameState } from './hooks/useGameState.js';
 import { useState, useEffect } from 'react';
+import HomeButton from '../../components/HomeButton.jsx';
+import DarkModeToggle from '../../components/DarkModeToggle.jsx';
+import { useDarkMode } from '../../hooks/useDarkMode.js';
 
 export default function GolfGame() {
 	const [aiSpeed, setAiSpeed] = useState(() => {
@@ -25,22 +27,7 @@ export default function GolfGame() {
 		}
 	}, [aiSpeed]);
 
-	const [darkMode, setDarkMode] = useState(() => {
-		try {
-			const saved = localStorage.getItem('golf:darkMode');
-			return saved ? JSON.parse(saved) : false;
-		} catch (error) {
-			console.warn('Failed to load dark mode from localStorage:', error);
-			return false;
-		}
-	});
-	useEffect(() => {
-		try {
-			localStorage.setItem('golf:darkMode', JSON.stringify(darkMode));
-		} catch (error) {
-			console.warn('Failed to save dark mode to localStorage:', error);
-		}
-	}, [darkMode]);
+	const { darkMode, toggleDarkMode } = useDarkMode('golf:darkMode');
 	const {
 		playerSetup,
 		playerCount,
@@ -230,54 +217,8 @@ export default function GolfGame() {
 
 	return (
 		<div>
-			{/* Home button */}
-			<Link
-				to="/"
-				style={{
-					position: 'fixed',
-					top: 16,
-					left: 16,
-					background: darkMode ? '#374151' : '#fff',
-					color: darkMode ? '#e5e5e5' : '#14532D',
-					border: darkMode ? '2px solid #4b5563' : '2px solid #14532D',
-					borderRadius: 8,
-					padding: '8px 16px',
-					fontSize: 14,
-					fontWeight: '600',
-					cursor: 'pointer',
-					boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-					zIndex: 1000,
-					textDecoration: 'none',
-					display: 'inline-flex',
-					alignItems: 'center',
-					gap: 6,
-					transition: 'all 0.3s ease',
-				}}
-			>
-				 Home
-			</Link>
-
-			<button
-				onClick={() => setDarkMode(!darkMode)}
-				style={{
-					position: 'fixed',
-					top: 16,
-					right: 16,
-					background: darkMode ? '#374151' : '#fff',
-					color: darkMode ? '#fbbf24' : '#14532D',
-					border: darkMode ? '2px solid #4b5563' : '2px solid #14532D',
-					borderRadius: 8,
-					padding: '8px 16px',
-					fontSize: 14,
-					fontWeight: '600',
-					cursor: 'pointer',
-					boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-					zIndex: 1000,
-					transition: 'all 0.3s ease',
-				}}
-			>
-				{darkMode ? ' Light' : ' Dark'}
-			</button>
+			<HomeButton darkMode={darkMode} />
+			<DarkModeToggle darkMode={darkMode} onToggle={toggleDarkMode} />
 			<div className={containerClass} style={containerStyle}>
 				{!setupComplete ? (
 					<>

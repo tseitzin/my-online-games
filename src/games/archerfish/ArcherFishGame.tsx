@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
 import type { GameConfig, Fish } from './types';
+import HomeButton from '../../components/HomeButton';
 import GameSetup from './components/GameSetup';
 import GameScreen from './components/GameScreen';
 import GameResults from './components/GameResults';
@@ -30,32 +30,7 @@ export default function ArcherFishGame() {
 
   return (
     <>
-      {/* Home button */}
-      <Link
-        to="/"
-        style={{
-          position: 'fixed',
-          top: 16,
-          left: 16,
-          background: '#fff',
-          color: '#1a202c',
-          border: '2px solid #1a202c',
-          borderRadius: 8,
-          padding: '8px 16px',
-          fontSize: 14,
-          fontWeight: '600',
-          cursor: 'pointer',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-          zIndex: 1000,
-          textDecoration: 'none',
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 6,
-          transition: 'all 0.3s ease',
-        }}
-      >
-        ← Home
-      </Link>
+      <HomeButton />
 
       {gamePhase === 'setup' && <GameSetup onStartGame={handleStartGame} />}
       {gamePhase === 'playing' && gameConfig && (

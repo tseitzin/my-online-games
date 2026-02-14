@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeEach, vi } from 'vitest'
 import { act } from '@testing-library/react'
-import { renderGameHook, makeSimpleDeck, makeDeck, finishPlayer } from '../../../test/gameTestHelpers.jsx'
+import { renderGameHook, makeSimpleDeck, makeDeck, finishPlayer } from '../test/golfTestHelpers.jsx'
 
 // Helper: submit setup with default 2 human players
 function submitSetup(result) {

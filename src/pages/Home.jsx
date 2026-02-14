@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom'
-import { useState, useEffect } from 'react'
+import { useEffect } from 'react'
+import DarkModeToggle from '../components/DarkModeToggle.jsx'
+import { useDarkMode } from '../hooks/useDarkMode.js'
 
 const games = [
   {
@@ -53,22 +55,7 @@ const games = [
 ]
 
 export default function Home() {
-  const [darkMode, setDarkMode] = useState(() => {
-    try {
-      const saved = localStorage.getItem('golf:darkMode')
-      return saved ? JSON.parse(saved) : false
-    } catch {
-      return false
-    }
-  })
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('golf:darkMode', JSON.stringify(darkMode))
-    } catch {
-      // Ignore localStorage errors
-    }
-  }, [darkMode])
+  const { darkMode, toggleDarkMode } = useDarkMode('home:darkMode')
 
   const theme = {
     light: {
@@ -103,28 +90,7 @@ export default function Home() {
         transition: 'background-color 0.3s ease',
       }}
     >
-      {/* Dark mode toggle */}
-      <button
-        onClick={() => setDarkMode(!darkMode)}
-        style={{
-          position: 'fixed',
-          top: 16,
-          right: 16,
-          background: darkMode ? '#374151' : '#fff',
-          color: darkMode ? '#fbbf24' : '#14532D',
-          border: darkMode ? '2px solid #4b5563' : '2px solid #14532D',
-          borderRadius: 8,
-          padding: '8px 16px',
-          fontSize: 14,
-          fontWeight: '600',
-          cursor: 'pointer',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-          zIndex: 1000,
-          transition: 'all 0.3s ease',
-        }}
-      >
-        {darkMode ? '☀️ Light' : '🌙 Dark'}
-      </button>
+      <DarkModeToggle darkMode={darkMode} onToggle={toggleDarkMode} />
 
       {/* Header */}
       <div style={{ textAlign: 'center', marginBottom: 48 }}>

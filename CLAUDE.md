@@ -59,7 +59,7 @@ Both TypeScript and JavaScript are used. Either is acceptable for new code. Newe
 - Test file naming: `{Component}.test.jsx` for components, `{hook}.test.js` for hooks
 - Use Vitest + React Testing Library for unit/integration tests
 - Use Playwright for end-to-end browser tests (in `e2e/` directory)
-- Shared test helpers in `src/test/gameTestHelpers.jsx` (deck builders, hook renderer, router wrapper)
+- Shared test helpers in `src/test/renderWithRouter.jsx` (router wrapper for components with `<Link>` or `<HomeButton>`)
 - Per-game test helpers in `src/games/{gameName}/test/{gameName}TestHelpers.{tsx,jsx}` (entity factories, config builders)
 - Run `npm run test` to verify before committing
 - Run `npm run test:coverage` to verify ≥80% coverage for any game with tests
@@ -117,36 +117,14 @@ export default function NewGame() {
 
 ### 3. Add the Home button
 
-Every game screen must include a Home button (fixed, top-left):
+Every game screen must include a Home button (fixed, top-left). Use the shared `HomeButton` component:
 
 ```tsx
-import { Link } from 'react-router-dom';
+import HomeButton from '../../components/HomeButton';
 
-<Link
-  to="/"
-  style={{
-    position: 'fixed',
-    top: 16,
-    left: 16,
-    background: '#fff',
-    color: '#1a202c',
-    border: '2px solid #1a202c',
-    borderRadius: 8,
-    padding: '8px 16px',
-    fontSize: 14,
-    fontWeight: '600',
-    cursor: 'pointer',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-    zIndex: 1000,
-    textDecoration: 'none',
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 6,
-    transition: 'all 0.3s ease',
-  }}
->
-  ← Home
-</Link>
+<HomeButton />
+// or with dark mode support:
+<HomeButton darkMode={darkMode} />
 ```
 
 ### 4. Add the route
@@ -195,7 +173,7 @@ export function renderWithRouter(ui: React.ReactElement) {
 
 **Hook unit tests** (turn-based games: `hooks/useGameState.test.js`):
 ```js
-import { renderGameHook, makeSimpleDeck } from '../../../test/gameTestHelpers.jsx'
+import { renderGameHook, makeSimpleDeck } from '../test/golfTestHelpers.jsx'
 import { act } from '@testing-library/react'
 
 it('initializes with correct state', () => {
@@ -216,8 +194,8 @@ it('applies gravity each frame', () => {
 **Component tests** (`components/{Component}.test.tsx`):
 ```tsx
 import { render, screen } from '@testing-library/react'
-import { renderWithRouter } from '../test/gameTestHelpers'
-// Use renderWithRouter for components that render <Link>
+import { renderWithRouter } from '../../../test/renderWithRouter.jsx'
+// Use renderWithRouter for components that render <Link> or <HomeButton>
 renderWithRouter(<Component {...props} />)
 ```
 
@@ -250,23 +228,17 @@ Target ≥80% statement coverage. Run `npm run test:coverage` to verify.
 
 ### Dark mode
 
-If adding dark mode to a game that doesn't have it, follow this pattern:
+If adding dark mode to a game that doesn't have it, use the shared `useDarkMode` hook and `DarkModeToggle` component:
 
 ```jsx
-const [darkMode, setDarkMode] = useState(() => {
-  try {
-    const saved = localStorage.getItem('{gameName}:darkMode');
-    return saved ? JSON.parse(saved) : false;
-  } catch { return false; }
-});
+import { useDarkMode } from '../../hooks/useDarkMode';
+import DarkModeToggle from '../../components/DarkModeToggle';
 
-useEffect(() => {
-  try { localStorage.setItem('{gameName}:darkMode', JSON.stringify(darkMode)); }
-  catch { /* ignore */ }
-}, [darkMode]);
+const { darkMode, toggleDarkMode } = useDarkMode('{gameName}:darkMode');
+
+// In your JSX:
+<DarkModeToggle darkMode={darkMode} onToggle={toggleDarkMode} />
 ```
-
-Add a toggle button fixed to the top-right corner.
 
 ### Game loop (real-time games)
 
@@ -309,7 +281,9 @@ useEffect(() => {
 | AI opponent (behavior) | `src/games/archerfish/utils/ai.ts` |
 | Multi-player keyboard input | `src/games/race/RaceGame.tsx` |
 | Touch controls | `src/games/race/components/TouchControls.tsx` |
-| Dark mode implementation | `src/games/golf/GolfGame.jsx` |
+| Dark mode implementation | `src/hooks/useDarkMode.js` |
+| Dark mode toggle component | `src/components/DarkModeToggle.jsx` |
+| Home button component | `src/components/HomeButton.jsx` |
 | localStorage persistence | `src/games/golf/GolfGame.jsx` |
 | Error boundary | `src/components/ErrorBoundary.jsx` |
 | Score calculation | `src/utils/score.js` |
@@ -330,7 +304,8 @@ useEffect(() => {
 | ErrorBoundary testing | `src/components/ErrorBoundary.test.jsx` |
 | Route testing | `src/App.test.jsx` |
 | E2e acceptance testing | `e2e/golf.spec.js` |
-| Shared test helpers | `src/test/gameTestHelpers.jsx` |
+| Shared test helpers | `src/test/renderWithRouter.jsx` |
+| Per-game test helpers (Golf) | `src/games/golf/test/golfTestHelpers.jsx` |
 | Per-game test helpers (TS) | `src/games/battleplanes/test/battlePlanesTestHelpers.tsx` |
 | Per-game test helpers (JS) | `src/games/dots/test/dotsTestHelpers.jsx` |
 

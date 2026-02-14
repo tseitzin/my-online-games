@@ -1,6 +1,5 @@
-import { renderHook, act } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
-import { useGameState } from '../games/golf/hooks/useGameState'
+import { renderHook } from '@testing-library/react'
+import { useGameState } from '../hooks/useGameState'
 
 // Helper utilities for test scenarios to reduce duplication.
 // finishPlayer: flips all cards of the specified player faceUp and sets flippedCount accordingly.
@@ -54,11 +53,4 @@ export function renderGameHook(overrides = {}) {
       ...overrides,
     })
   )
-}
-
-/**
- * MemoryRouter wrapper for component tests that use <Link>.
- */
-export function GameWrapper({ children }) {
-  return <MemoryRouter>{children}</MemoryRouter>
 }

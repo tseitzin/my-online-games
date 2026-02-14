@@ -25,7 +25,7 @@ describe('CheckersGame', () => {
 
     it('renders Home link', () => {
       renderCheckersGame()
-      expect(screen.getByText('Home')).toBeInTheDocument()
+      expect(screen.getByText(/Home/)).toBeInTheDocument()
     })
 
     it('renders dark mode toggle button', () => {
