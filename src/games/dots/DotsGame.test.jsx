@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, within, act } from '@testing-library/react'
+import { screen, fireEvent } from '@testing-library/react'
 import DotsGame from './DotsGame.jsx'
 import { renderWithRouter } from './test/dotsTestHelpers.jsx'
 

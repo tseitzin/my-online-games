@@ -2,7 +2,7 @@ import { Crown } from 'lucide-react';
 import { PLAYER_COLORS, PIECE_TYPES, PIECE_COLORS } from '../constants';
 
 
-const CheckerPiece = ({ piece, isSelected, isDragging, darkMode = false }) => {
+const CheckerPiece = ({ piece, isSelected, darkMode = false }) => {
   if (!piece) return null;
 
   const isRed = piece.color === PLAYER_COLORS.RED;

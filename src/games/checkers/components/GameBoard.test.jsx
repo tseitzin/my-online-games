@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, fireEvent } from '@testing-library/react'
 import GameBoard from './GameBoard.jsx'
 import { createInitialBoard } from '../constants/index.js'
 

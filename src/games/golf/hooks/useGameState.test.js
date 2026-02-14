@@ -780,7 +780,6 @@ describe('useGameState', () => {
       submitSetup(result)
       act(() => { result.current.setRoundOver(true) })
       // Should not crash
-      const playersBefore = result.current.players
       expect(result.current.roundOver).toBe(true)
     })
   })

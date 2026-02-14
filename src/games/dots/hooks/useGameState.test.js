@@ -8,9 +8,6 @@ import {
 	makeComputerPlayer,
 	makePlayer,
 	lineKey,
-	buildLines,
-	boxLines,
-	threeOfFourLines,
 } from '../test/dotsTestHelpers.jsx'
 
 vi.mock('../utils/aiLogic', () => ({
@@ -893,7 +890,7 @@ describe('useGameState', () => {
 		})
 
 		it('does not trigger AI move when players array is empty', async () => {
-			const { result } = renderDotsHook()
+			renderDotsHook()
 			findBestMove.mockReturnValue({ row: 0, col: 0, isHorizontal: true })
 			// Don't initialize game - players array is empty
 			await act(async () => { vi.advanceTimersByTime(1000) })
@@ -901,7 +898,7 @@ describe('useGameState', () => {
 		})
 
 		it('clears timeout on cleanup/unmount', async () => {
-			const clearTimeoutSpy = vi.spyOn(global, 'clearTimeout')
+			const clearTimeoutSpy = vi.spyOn(globalThis, 'clearTimeout')
 			const { result, unmount } = renderDotsHook()
 			findBestMove.mockReturnValue({ row: 0, col: 0, isHorizontal: true })
 			const players = [

@@ -1,7 +1,8 @@
+/* eslint-disable react-refresh/only-export-components */
 import { render } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 
-export function GameWrapper({ children }) {
+function GameWrapper({ children }) {
   return <MemoryRouter>{children}</MemoryRouter>
 }
 

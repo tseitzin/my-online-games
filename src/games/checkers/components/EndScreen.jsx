@@ -1,3 +1,4 @@
+// eslint-disable-next-line no-unused-vars
 import { motion } from 'framer-motion';
 import { Trophy, RotateCcw, Home } from 'lucide-react';
 import { PLAYER_COLORS } from '../constants';

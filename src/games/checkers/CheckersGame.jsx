@@ -1,11 +1,11 @@
+// eslint-disable-next-line no-unused-vars
 import { motion } from 'framer-motion';
-import { Undo, Home, Lightbulb, HelpCircle } from 'lucide-react';
+import { Lightbulb, HelpCircle } from 'lucide-react';
 import { useGameState } from './hooks/useGameState';
 import { GAME_STATES } from './constants';
 import SetupScreen from './components/SetupScreen';
 import GameBoard from './components/GameBoard';
 import EndScreen from './components/EndScreen';
-import { useEffect } from 'react';
 import HomeButton from '../../components/HomeButton.jsx';
 import DarkModeToggle from '../../components/DarkModeToggle.jsx';
 import { useDarkMode } from '../../hooks/useDarkMode.js';
@@ -19,14 +19,11 @@ const CheckersGame = () => {
     selectedPiece,
     validMoves,
     winner,
-    message,
     lastMove,
-    canUndo,
     showHints,
     currentHint,
     selectPiece,
     movePiece,
-    undoMove,
     startGame,
     resetGame,
     toggleHints,

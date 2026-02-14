@@ -542,7 +542,7 @@ describe('wouldCreateThreeSidedBox (tested via integration)', () => {
 		// Draw 2 sides of box(1,0): top and left.
 		// The move (2,0,h) — bottom of box(1,0) — would create 3 sides for
 		// box(1,0). But if we mark box(1,0) as completed too, it should skip.
-		const lines = buildLines([
+		const _lines = buildLines([
 			...boxLines(0, 0),    // all 4 sides of box(0,0)
 			[1, 0, true],        // this is both bottom of box(0,0) and top of box(1,0) — already drawn above
 			[1, 0, false],       // left of box(1,0)

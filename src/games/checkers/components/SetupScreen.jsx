@@ -1,4 +1,5 @@
 import { useState } from 'react';
+// eslint-disable-next-line no-unused-vars
 import { motion } from 'framer-motion';
 import { Users, Cpu, Crown, Play } from 'lucide-react';
 import { GAME_MODES, PLAYER_COLORS, AI_DIFFICULTY } from '../constants';
