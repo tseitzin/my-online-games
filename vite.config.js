@@ -11,5 +11,12 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: './src/setupTests.js',
     globals: true,
+    exclude: ['e2e/**', 'node_modules/**'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'text-summary', 'html'],
+      include: ['src/games/golf/**', 'src/games/checkers/**', 'src/games/archerfish/**', 'src/games/race/**', 'src/games/dots/**', 'src/games/battleplanes/**'],
+      exclude: ['**/*.test.*', '**/test/**'],
+    },
   },
 })

@@ -80,6 +80,8 @@ Open your browser to `http://localhost:5174`
 | `npm run start` | Run production server (Express) |
 | `npm run test` | Run all tests once |
 | `npm run test:watch` | Run tests in watch mode |
+| `npm run test:coverage` | Run tests with coverage report |
+| `npm run test:e2e` | Run Playwright end-to-end tests |
 | `npm run lint` | Check for linting errors |
 | `npm run lint:fix` | Automatically fix linting errors |
 
@@ -93,20 +95,23 @@ Open your browser to `http://localhost:5174`
 - **Lucide React** - Icon library
 - **Vitest** - Testing framework
 - **React Testing Library** - Component testing
+- **Playwright** - End-to-end browser testing
 - **Express** - Production server
 - **TypeScript / JavaScript** - Both used across the codebase
 
 ## Project Structure
 
 ```
+e2e/                        # Playwright end-to-end tests
 src/
-├── games/                  # Game implementations
+├── games/                  # Game implementations (tests co-located)
 │   ├── golf/               # Golf card game
 │   ├── race/               # Race game
 │   ├── dots/               # Dots and Boxes
 │   ├── checkers/           # Checkers
 │   ├── archerfish/         # Archer Fish
 │   └── battleplanes/       # Battle Planes
+├── test/                   # Shared test helpers
 ├── pages/                  # Home page
 ├── components/             # Shared components (ErrorBoundary)
 ├── types/                  # Shared TypeScript types
@@ -116,6 +121,41 @@ src/
 ```
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed technical documentation.
+
+## Testing
+
+The project uses a three-layer testing approach:
+
+- **Unit tests** — Hook and utility logic via Vitest + `renderHook`
+- **Integration tests** — Component rendering and interactions via React Testing Library
+- **End-to-end tests** — Browser-based acceptance tests via Playwright
+
+Tests are co-located with their source files (e.g., `Card.test.jsx` next to `Card.jsx`). Shared test helpers live in `src/test/gameTestHelpers.jsx`.
+
+### Current Coverage
+
+**Overall: 90.35% statement coverage — 1,161 unit/integration tests + 74 e2e tests**
+
+| Game / Area | Unit/Integration Tests | E2E Tests | Statement Coverage |
+|-------------|----------------------|-----------|-------------------|
+| Golf | 169 | 11 | 85% |
+| Checkers | 228 | 13 | 95% |
+| Race | 137 | 11 | 91% |
+| Dots and Boxes | 196 | 13 | 98% |
+| Archer Fish | 211 | 13 | 87% |
+| Battle Planes | 168 | 13 | ~100% |
+| App-level (Home, ErrorBoundary, Routing) | 52 | — | 90%+ |
+
+### Running Tests
+
+```bash
+npm run test              # Run all unit/integration tests
+npm run test:watch        # Watch mode
+npm run test:coverage     # Tests + coverage report (HTML in coverage/)
+npm run test:e2e          # Playwright browser tests
+```
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed testing patterns and how to write tests for new games.
 
 ## Building for Production
 

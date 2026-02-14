@@ -618,14 +618,322 @@ flowchart TB
 
 ## Testing
 
-- **Runner:** Vitest with jsdom environment
-- **Component testing:** React Testing Library
-- **Setup:** `src/setupTests.js`
-- **Helpers:** `src/test/gameTestHelpers.js`
-- **Test co-location:** Tests live next to their source files (`Component.test.jsx`)
+### Strategy
 
-Run tests:
+Tests follow a three-layer approach that maps to each game's architecture:
+
+1. **Hook unit tests** — Test game logic in isolation via `renderHook`. Highest coverage impact since hooks contain all game state and rules.
+2. **Component integration tests** — Render components with React Testing Library, verify output, simulate user interactions, check callbacks.
+3. **Playwright e2e tests** — Browser-based acceptance tests that exercise the full running application (routing, CSS, animations, real DOM).
+
+Tests are **co-located** with source files: `Card.test.jsx` lives next to `Card.jsx`. Shared test utilities live in `src/test/gameTestHelpers.jsx`.
+
+### Infrastructure
+
+| Tool | Purpose |
+|------|---------|
+| Vitest + jsdom | Unit and integration test runner |
+| React Testing Library | Component rendering and interaction |
+| Playwright + Chromium | End-to-end browser tests |
+| @vitest/coverage-v8 | Code coverage via V8 |
+
+Configuration files:
+- `vite.config.js` — Vitest config (environment, setup, coverage)
+- `playwright.config.js` — Playwright config (browser, webServer, test directory)
+- `src/setupTests.js` — Vitest setup (imports `@testing-library/jest-dom`)
+
+### Running Tests
+
 ```bash
-npm run test          # Single run
-npm run test:watch    # Watch mode
+npm run test              # Run all unit/integration tests once
+npm run test:watch        # Watch mode (re-runs on file changes)
+npm run test:coverage     # Tests + V8 coverage report
+npm run test:e2e          # Playwright browser tests (auto-starts dev server)
 ```
+
+Coverage reports are generated in `coverage/` as HTML — open `coverage/index.html` for an interactive drill-down by file and line.
+
+### Current Coverage
+
+**Overall: 90.35% statement coverage — 1,161 unit/integration tests (57 files) + 74 e2e tests**
+
+| Game / Area | Unit/Integration | E2E | Statement Coverage |
+|-------------|-----------------|-----|-------------------|
+| Golf | 169 tests (9 files) | 11 | 85% |
+| Checkers | 228 tests (10 files) | 13 | 95% |
+| Race | 137 tests (9 files) | 11 | 91% |
+| Dots and Boxes | 196 tests (9 files) | 13 | 98% |
+| Archer Fish | 211 tests (9 files) | 13 | 87% |
+| Battle Planes | 168 tests (7 files) | 13 | ~100% |
+| App-level | 52 tests (3 files) | — | 90%+ |
+
+#### Per-Game Test Details
+
+**Golf** (85% — 169 unit/integration + 11 e2e)
+
+| Test File | Tests | What It Covers |
+|-----------|-------|----------------|
+| `src/utils/score.test.js` | 12 | Scoring calculation utilities |
+| `src/games/golf/hooks/useGameState.test.js` | 80 | All game logic: setup, turns, drawing, discarding, flipping, AI, persistence |
+| `src/games/golf/GolfGame.test.jsx` | 16 | Phase transitions, dark mode, action bar, overall integration |
+| `src/games/golf/components/Scorecard.test.jsx` | 12 | Score table, breakdown modal, subtotals |
+| `src/games/golf/components/PlayerSetup.test.jsx` | 11 | Setup form inputs and callbacks |
+| `src/games/golf/components/PlayerBoard.test.jsx` | 9 | Player grid rendering, indicators, dark mode |
+| `src/games/golf/components/DrawDiscardArea.test.jsx` | 12 | Draw/discard pile rendering and click handlers |
+| `src/games/golf/components/Card.test.jsx` | 9 | Card face/back rendering, flip animation, highlights |
+| `src/games/golf/components/ActionBar.test.jsx` | 8 | Action buttons and conditional rendering |
+| `e2e/golf.spec.js` | 11 | Full browser flows: navigation, setup, gameplay, scoring |
+
+**Checkers** (95% — 228 unit/integration + 13 e2e)
+
+| Test File | Tests | What It Covers |
+|-----------|-------|----------------|
+| `src/games/checkers/hooks/useGameState.test.js` | 89 | Game logic, turns, captures, kings, AI, undo, hints |
+| `src/games/checkers/utils/moveValidation.test.js` | 36 | Move validation, mandatory captures, multi-jumps |
+| `src/games/checkers/utils/aiLogic.test.js` | 28 | Minimax AI, difficulty levels, move evaluation |
+| `src/games/checkers/CheckersGame.test.jsx` | 18 | Phase transitions, dark mode, integration |
+| `src/games/checkers/components/*.test.js` | 57 | Board, pieces, setup, controls, captured pieces |
+| `e2e/checkers.spec.js` | 13 | Full browser flows |
+
+**Race** (91% — 137 unit/integration + 11 e2e)
+
+| Test File | Tests | What It Covers |
+|-----------|-------|----------------|
+| `src/games/race/game/GameEngine.test.ts` | 28 | Race simulation, car physics, AI, lap counting |
+| `src/games/race/game/Track.test.ts` | 19 | Track geometry, path generation, all 4 track types |
+| `src/games/race/game/Car.test.ts` | 18 | Car entity, rendering, collision |
+| `src/games/race/game/physics.test.ts` | 16 | Physics calculations, delta time |
+| `src/games/race/game/ai.test.ts` | 14 | AI speed targeting, lane correction |
+| `src/games/race/components/*.test.ts` | 26 | Setup, canvas, end screen, touch controls |
+| `src/games/race/RaceGame.test.tsx` | 16 | Phase transitions, keyboard input, integration |
+| `e2e/race.spec.js` | 11 | Full browser flows |
+
+**Dots and Boxes** (98% — 196 unit/integration + 13 e2e)
+
+| Test File | Tests | What It Covers |
+|-----------|-------|----------------|
+| `src/games/dots/hooks/useGameState.test.js` | 72 | Game logic, line drawing, box completion, AI, undo |
+| `src/games/dots/utils/aiLogic.test.js` | 31 | AI strategy, box completion priority, chain avoidance |
+| `src/games/dots/DotsGame.test.jsx` | 20 | Phase transitions, dark mode, integration |
+| `src/games/dots/components/*.test.jsx` | 73 | Board SVG, dots, lines, hitboxes, scores, setup |
+| `e2e/dots.spec.js` | 13 | Full browser flows |
+
+**Archer Fish** (87% — 211 unit/integration + 13 e2e)
+
+| Test File | Tests | What It Covers |
+|-----------|-------|----------------|
+| `src/games/archerfish/utils/physics.test.ts` | 32 | Fish/robot movement, collision detection, boundaries |
+| `src/games/archerfish/utils/ai.test.ts` | 28 | AI fish behavior, evasion, navigation |
+| `src/games/archerfish/utils/initializer.test.ts` | 18 | Entity creation, obstacle generation |
+| `src/games/archerfish/utils/leaderboard.test.ts` | 12 | Score persistence, localStorage |
+| `src/games/archerfish/components/*.test.tsx` | 89 | Setup, game screen, fish, robot, obstacles |
+| `src/games/archerfish/ArcherFishGame.test.tsx` | 16 | Phase transitions, integration |
+| `e2e/archerfish.spec.js` | 13 | Full browser flows |
+
+**Battle Planes** (~100% — 168 unit/integration + 13 e2e)
+
+| Test File | Tests | What It Covers |
+|-----------|-------|----------------|
+| `src/games/battleplanes/components/GameScreen.test.tsx` | 82 | All game logic: plane init, movement, firing, collision, timer, win condition |
+| `src/games/battleplanes/components/GameSetup.test.tsx` | 32 | Setup options: plane count, duration, difficulty |
+| `src/games/battleplanes/components/Weapon.test.tsx` | 22 | Lightning bolt, recharge bar, ready indicator |
+| `src/games/battleplanes/components/Plane.test.tsx` | 12 | Plane sprite positioning, direction flip, number overlay |
+| `src/games/battleplanes/components/Explosion.test.tsx` | 10 | RAF-driven explosion animation |
+| `src/games/battleplanes/BattlePlanesGame.test.tsx` | 10 | Phase transitions, Home button |
+| `e2e/battleplanes.spec.js` | 13 | Full browser flows |
+
+**App-Level** (52 tests)
+
+| Test File | Tests | What It Covers |
+|-----------|-------|----------------|
+| `src/pages/Home.test.jsx` | 25 | Game grid, cards, dark mode toggle, localStorage |
+| `src/components/ErrorBoundary.test.jsx` | 15 | Error catching, dev details, reload/reset buttons |
+| `src/App.test.jsx` | 12 | Route rendering for all 6 games, ErrorBoundary wrapping |
+
+### Writing Tests for a New Game
+
+Follow this order (highest coverage impact first):
+
+**1. Create per-game test helpers** (`test/{gameName}TestHelpers.tsx`)
+
+Each game has its own test helpers file with factory functions and utilities:
+
+```tsx
+// Factory functions for game entities
+export function makePlane(overrides?: Partial<Plane>): Plane { ... }
+export function makeGameConfig(overrides?: Partial<GameConfig>): GameConfig { ... }
+
+// Router wrapper for components with <Link>
+export function renderWithRouter(ui: React.ReactElement) {
+  return render(<MemoryRouter>{ui}</MemoryRouter>);
+}
+```
+
+**2. Hook unit tests** (turn-based games: `hooks/useGameState.test.js`)
+```js
+import { renderGameHook, makeSimpleDeck } from '../../../test/gameTestHelpers.jsx'
+import { act } from '@testing-library/react'
+
+it('initializes with correct state', () => {
+  const { result } = renderGameHook({ initialDeck: makeSimpleDeck() })
+  // assert on result.current.*
+})
+```
+
+**3. Utility/engine tests** (real-time games: `game/*.test.ts` or `utils/*.test.ts`)
+```ts
+import { updatePhysics, checkCollision } from '../utils/physics'
+it('detects collision between entities', () => { ... })
+```
+
+**4. Main game component test** (`{Game}Game.test.tsx`)
+```tsx
+// Mock child components to isolate phase transition logic
+vi.mock('./components/GameSetup', () => ({ default: (props) => <div data-testid="setup" /> }))
+vi.mock('./components/GameScreen', () => ({ default: (props) => <div data-testid="screen" /> }))
+```
+
+**5. Individual component tests** (`components/{Component}.test.tsx`)
+- Render with required props, verify output
+- Simulate clicks, check callbacks fire
+- Test dark mode variants
+
+**6. Playwright e2e tests** (`e2e/{game}.spec.js`)
+```js
+import { test, expect } from '@playwright/test'
+test('can start game from home page', async ({ page }) => {
+  await page.goto('/')
+  await page.click('a[href="/{game}"]')
+  await expect(page.locator('h1')).toBeVisible()
+})
+```
+
+### Test Helpers
+
+#### Shared (`src/test/gameTestHelpers.jsx`)
+
+| Helper | Purpose |
+|--------|---------|
+| `makeDeck(values)` | Build a deterministic 108-card deck from a value array |
+| `makeSimpleDeck(v1, v2, drawValue)` | Quick 2-player deck: P1 gets v1, P2 gets v2, draw pile is drawValue |
+| `renderGameHook(overrides)` | Render `useGameState` with test defaults (no delays, no persistence, no AI auto-play) |
+| `GameWrapper` | `<MemoryRouter>` wrapper for components that use `<Link>` |
+| `finishPlayer(result, playerIndex)` | Flip all cards face-up for a player (triggers round end) |
+
+Hook test config options passed via `renderGameHook()`:
+- `disableDelays: true` — Skip animation/AI timeouts
+- `exposeTestHelpers: true` — Expose `__setPlayers`, `__setInitialFlips`, `__setTurnComplete`, etc.
+- `enablePersistence: false` — Don't read/write localStorage
+- `disableComputerAuto: true` — Prevent AI from auto-playing
+- `initialDeck: [...]` — Seed a deterministic deck
+
+#### Per-Game Test Helpers
+
+Each game has its own test helpers in `src/games/{gameName}/test/`:
+
+| Game | File | Key Exports |
+|------|------|-------------|
+| Checkers | `checkersTestHelpers.js` | Board builders, hook renderer |
+| Race | `raceTestHelpers.ts` | `createCar`, `createConfig`, `createMockCanvasContext`, `mockCanvasGetContext`, Path2D polyfill |
+| Dots | `dotsTestHelpers.jsx` | Player/config factories, board builders, hook renderer |
+| Archer Fish | `archerFishTestHelpers.tsx` | Entity factories (fish, robot, obstacle), `renderWithRouter` |
+| Battle Planes | `battlePlanesTestHelpers.tsx` | `makePlane`, `makeGameConfig`, `mockContainerRect`, `setupWindowDimensions`, `mockMathRandom` |
+
+### Key Testing Patterns
+
+**Wrap state mutations in `act()`:**
+```js
+await act(async () => { result.current.drawCard() })
+```
+
+**Mock `window.confirm` for destructive actions:**
+```js
+vi.spyOn(window, 'confirm').mockReturnValue(true)
+fireEvent.click(screen.getByText('Reset'))
+window.confirm.mockRestore()
+```
+
+**Timer mocking (real-time games with intervals/timeouts):**
+```js
+vi.useFakeTimers()
+// Advance game loop, countdown, recharge, etc.
+await act(async () => { vi.advanceTimersByTime(1000) })
+vi.useRealTimers()
+```
+
+**requestAnimationFrame mocking (animation games):**
+```js
+const rafCallbacks = []
+vi.spyOn(window, 'requestAnimationFrame').mockImplementation(cb => {
+  rafCallbacks.push(cb); return rafCallbacks.length
+})
+// Trigger manually
+await act(async () => { rafCallbacks[0](performance.now()) })
+```
+
+**Canvas mocking (Race game):**
+```ts
+const mockCtx = createMockCanvasContext() // All canvas methods as vi.fn()
+vi.spyOn(canvas, 'getContext').mockReturnValue(mockCtx)
+// Global Path2D polyfill for track geometry
+global.Path2D = vi.fn()
+```
+
+**Mock child components (isolate integration logic):**
+```tsx
+// In GameScreen tests, mock Plane/Weapon/Explosion to avoid RAF/SVG complexity
+vi.mock('../Plane', () => ({ default: ({ plane }) => <div data-plane-id={plane.id} /> }))
+```
+
+**Mock `getBoundingClientRect` for collision testing:**
+```ts
+vi.spyOn(container, 'getBoundingClientRect').mockReturnValue({
+  left: 0, top: 0, right: 1024, bottom: 768, width: 1024, height: 768, x: 0, y: 0, toJSON: () => ({})
+})
+```
+
+**ErrorBoundary testing:**
+```jsx
+// ThrowingChild pattern — conditionally throw to test error boundary
+function ThrowingChild({ shouldThrow }) {
+  if (shouldThrow) throw new Error('Test error')
+  return <div>OK</div>
+}
+```
+
+**JSDOM quirks:**
+- CSS colors return as `rgb()` format, not hex — use dual assertions: `expect(bg === '#fee2e2' || bg === 'rgb(254, 226, 226)').toBe(true)`
+- CSS 3D transforms with `backface-visibility: hidden` — card back text is always in the DOM even when visually hidden
+- `border` shorthand not readable via `style.border` — use `getAttribute('style')` or test via `box-shadow` instead
+
+**Playwright interactions:**
+- Target cards by grid position: `grid.locator('> div').nth(1).click({ force: true })`
+- Use `force: true` for elements that may be covered by overlays
+
+### Coverage Configuration
+
+The coverage config in `vite.config.js` includes all 6 games:
+```js
+coverage: {
+  provider: 'v8',
+  include: [
+    'src/games/golf/**',
+    'src/games/checkers/**',
+    'src/games/archerfish/**',
+    'src/games/race/**',
+    'src/games/dots/**',
+    'src/games/battleplanes/**',
+  ],
+}
+```
+
+- **Per-game checks**: `npx vitest run --coverage --coverage.include='src/games/{game}/**'`
+- **Full-app check**: Add `'src/**'` to include for overall coverage (currently 90.35% statements)
+- **Coverage thresholds**: Add to `vite.config.js` to fail if coverage drops below 80%:
+  ```js
+  coverage: {
+    thresholds: { statements: 80, branches: 70, functions: 75, lines: 80 },
+  }
+  ```
+- **HTML reports**: Open `coverage/index.html` after running `npm run test:coverage` for interactive file-by-file drill-down
+- **CI integration**: Run `npm run test:coverage` and `npm run test:e2e` as pipeline steps; publish `coverage/` as an artifact
